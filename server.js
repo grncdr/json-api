@@ -37,7 +37,7 @@ app.request.value('subscriptionOffset', (request) => {
 app.routes({
   'GET /*':    (state, path)             => state.get(path),
   'PUT /*':    (state, path, parsedBody) => state.apply([{ op: 'add', path, value: parsedBody }]),
-  'DELETE /*': (state, path)             => state.apply({ op: 'remove', path }),
+  'DELETE /*': (state, path)             => state.apply([{ op: 'remove', path }]),
   'PATCH /*':  (state, path, patch)      => state.apply(patch)
 })
 
