@@ -9,7 +9,7 @@ export default app
 
 app.value('states', new Map())
 
-app.value('stateId', (request) => request.url.split('/')[1])
+app.request.value('stateId', (request) => request.url.split('/')[1])
 
 app.request.value('state', (states, stateId) => {
   if (!states.has(stateId)) {
