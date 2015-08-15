@@ -1,0 +1,17 @@
+{
+  "name": "json-api",
+  "version": "1.0.0",
+  "description": "JSON-patch based state server",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Stephen Sugden <me@stephensugden.com>",
+  "license": "MIT",
+  "dependencies": {
+    "from2": "^2.1.0",
+    "jiff": "^0.7.2",
+    "web-pockets": "^0.3.0",
+    "xtend": "^4.0.0"
+  }
+}
