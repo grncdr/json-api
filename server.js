@@ -18,9 +18,7 @@ app.request.value('state', (states, stateId) => {
   return states.get(stateId)
 })
 
-app.request.value('path', (request) => {
-  return '/' + (request.url || '/').split('/').slice(2).join('/')
-})
+app.request.value('path', (request) => '/' + request.url.split('/').slice(2).join('/'))
 
 app.request.value('patch', (path, parsedBody) => parsedBody.map(
   op => xtend(op, {path: path + op.path})
