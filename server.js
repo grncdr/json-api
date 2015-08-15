@@ -34,6 +34,14 @@ app.request.value('subscriptionOffset', (request) => {
   return n
 })
 
+app.request.wrap('result', async (getResult) => {
+  const result = await getResult()
+  if (result.error) {
+    console.error(result.error.stack)
+  }
+  return result
+})
+
 app.routes({
   'PUT /*':    (state, path, parsedBody) => state.apply([{ op: 'add', path, value: parsedBody }]),
   'DELETE /*': (state, path)             => state.apply([{ op: 'remove', path }]),
