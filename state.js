@@ -5,23 +5,18 @@ import from2 from 'from2'
 export default function empty () {
   let log = []
   let state = {}
-  let waiters = []
+  const waiting = []
 
-  return { apply, get, ops, size, changes }
+  return { apply, get, changes }
 
   function apply (patch) {
     const invertiblePatch = makeInvertible(patch, state)
     const newState = applyPatch(invertiblePatch, state)
     state = newState
     log = log.concat(invertiblePatch)
-    let waiters_ = waiters.slice()
-    waiters = []
-    waiters_.forEach(fn => fn())
+    const notify = waiting.splice(0, waiting.length)
+    notify.forEach(fn => fn())
     return {v: log.length};
-  }
-
-  function wait (notify) {
-    waiters.push(notify)
   }
 
   function get (path) {
@@ -38,14 +33,6 @@ export default function empty () {
     return clone(value)
   }
 
-  function size () {
-    return log.length
-  }
-
-  function ops (from = 0, to = Infinity) {
-    return log.slice(from, to)
-  }
-    
   /**
    * Ensure that we only have invertible operations in our patch
    */
@@ -67,21 +54,19 @@ export default function empty () {
     function pull (size, next) {
       let chunk = ""
       size = size || 1024
-      while (chunk.length < size && offset < state.size()) {
-        state.ops(offset, offset + 10).forEach(op => {
-          if (op.op === 'test' || op.path.substr(prefix.length) != prefix) {
-            return
-          }
+
+      while (chunk.length < size && offset < log.length) {
+        let op = log[offset++]
+        if (op.op !== 'test' || op.path.substr(prefix.length) == prefix) {
           chunk += JSON.stringify(op) + '\n'
-          offset++
-        })
+        }
       }
 
       if (chunk) {
-        chunk += `{"v":${subscriptionOffset}}\n`
+        chunk += `{"v":${offset}}\n`
         next(null, chunk)
       } else {
-        wait(() => pull(size, next))
+        waiting.push(() => pull(size, next))
       }
     }
   }
