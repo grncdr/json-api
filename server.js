@@ -1,7 +1,9 @@
+/* @flow */
 import createApp from 'web-pockets'
 import xtend from 'xtend'
 
-import empty from './state'
+import initState from './state'
+import openLog from './log'
 
 const app = createApp()
 
@@ -11,11 +13,13 @@ app.value('states', new Map())
 
 app.request.value('stateId', (request) => request.url.split('/')[1])
 
-app.request.value('state', (states, stateId) => {
-  if (!states.has(stateId)) {
-    states.set(stateId, empty())
+app.request.value('state', async (states, stateId) => {
+  let state = states.get(stateId)
+  if (!state) {
+    state = initState(await openLog(__dirname + '/logs/' + stateId + '.json.log'))
+    states.set(stateId, state)
   }
-  return states.get(stateId)
+  return state
 })
 
 app.request.value('path', (request) => '/' + request.url.split('/').slice(2).join('/'))

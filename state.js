@@ -1,22 +1,37 @@
 import {clone, patch as applyPatch} from 'jiff'
-import xtend from 'xtend'
 import from2 from 'from2'
+import through from 'through2'
+import xtend from 'xtend'
 
-export default function empty () {
-  let log = []
-  let state = {}
+import openLog from './log'
+
+export default async function open (log) {
+  let opCount = 0
+
+  let state = await new Promise((resolve, reject) => {
+    const patch = []
+    // Maybe TODO - compact log operations before applying? The simplified
+    // operations stored in the log will often overwrite pre-existing keys and
+    // could therefore be skipped here. This would make loading O(n**2) but
+    // patching O(m), m < n. Needs benchmarks first
+    log.read(0, false).on('data', op => patch.push(op)).on('error', reject).on('end', () => {
+      opCount = patch.length
+      resolve(applyPatch(patch, {}))
+    })
+  })
+
   const waiting = []
 
   return { apply, get, changes }
 
-  function apply (patch) {
+  async function apply (patch) {
     const invertiblePatch = makeInvertible(patch, state)
     const newState = applyPatch(invertiblePatch, state)
+
+    await log.write(invertiblePatch)
+    opCount += invertiblePatch.length
     state = newState
-    log = log.concat(invertiblePatch)
-    const notify = waiting.splice(0, waiting.length)
-    notify.forEach(fn => fn())
-    return {v: log.length};
+    return {v: opCount};
   }
 
   function get (path) {
@@ -49,6 +64,21 @@ export default function empty () {
   }
 
   function changes (prefix, offset = 0) {
+    const lines = log.read(offset)
+    const filter = through.obj({highWaterMark: 1}, (op, _, next) => {
+      offset++
+      if (op.path.substr(0, prefix.length) === prefix) {
+        next(null, JSON.stringify(op) + '\n')
+      } else {
+        next()
+      }
+    }, (next) => {
+      filter.push(`{"v":${offset}}\n`)
+      next()
+    })
+
+    return lines.pipe(filter)
+
     return from2(pull)
 
     function pull (size, next) {

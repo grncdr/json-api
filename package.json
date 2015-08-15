@@ -11,6 +11,8 @@
   "dependencies": {
     "from2": "^2.1.0",
     "jiff": "^0.7.2",
+    "split2": "^1.0.0",
+    "through2": "^2.0.0",
     "web-pockets": "^0.3.0",
     "xtend": "^4.0.0"
   }
