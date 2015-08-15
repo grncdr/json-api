@@ -46,8 +46,8 @@ app.routes({
   'PATCH /*':  (state, path, patch)      => state.apply(patch)
 })
 
-app.route('GET /*', (state, path) => {
-  const value = state.get(path)
+app.route('GET /*', async (state, path) => {
+  const value = await state.get(path)
   // Return non-null objects directly
   if (value && typeof value == 'object') {
     return value
