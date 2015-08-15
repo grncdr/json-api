@@ -32,7 +32,7 @@ app.request.value('subscriptionOffset', (request) => {
     throw new Error('x-subscription-offset must be a non-negative integer')
   }
   return n
-}
+})
 
 app.routes({
   'GET /*':    (state, path)             => state.get(path),
