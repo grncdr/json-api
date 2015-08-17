@@ -9,7 +9,6 @@
   "author": "Stephen Sugden <me@stephensugden.com>",
   "license": "MIT",
   "dependencies": {
-    "from2": "^2.1.0",
     "jiff": "^0.7.2",
     "split2": "^1.0.0",
     "through2": "^2.0.0",

@@ -1,23 +1,18 @@
 import {clone, patch as applyPatch} from 'jiff'
-import from2 from 'from2'
 import through from 'through2'
 import xtend from 'xtend'
 
-import openLog from './log'
-
-export default async function open (log) {
+export default async function fromLog (log) {
   let opCount = 0
 
   let state = await new Promise((resolve, reject) => {
     const patch = []
-    // Maybe TODO - compact log operations before applying? The simplified
-    // operations stored in the log will often overwrite pre-existing keys and
-    // could therefore be skipped here. This would make loading O(n**2) but
-    // patching O(m), m < n. Needs benchmarks first
-    log.read(0, false).on('data', op => patch.push(op)).on('error', reject).on('end', () => {
-      opCount = patch.length
-      resolve(applyPatch(patch, {}))
-    })
+    log.read({offset: 0, follow: false})
+      .on('data', op => patch.push(op))
+      .on('error', reject).on('end', () => {
+        opCount = patch.length
+        resolve(applyPatch(compact(patch), {}))
+      })
   })
 
   const waiting = []
@@ -63,8 +58,8 @@ export default async function open (log) {
     }, [])
   }
 
-  function changes (prefix, offset = 0) {
-    const lines = log.read(offset)
+  function changes ({prefix = '/', offset = 0, idleTimeout = 5000}) {
+    const lines = log.read({offset, idleTimeout, follow: true})
     const filter = through.obj({highWaterMark: 1}, (op, _, next) => {
       offset++
       if (op.path.substr(0, prefix.length) === prefix) {
@@ -77,28 +72,7 @@ export default async function open (log) {
       next()
     })
 
-    return lines.pipe(filter)
-
-    return from2(pull)
-
-    function pull (size, next) {
-      let chunk = ""
-      size = size || 1024
-
-      while (chunk.length < size && offset < log.length) {
-        let op = log[offset++]
-        if (op.op !== 'test' || op.path.substr(prefix.length) == prefix) {
-          chunk += JSON.stringify(op) + '\n'
-        }
-      }
-
-      if (chunk) {
-        chunk += `{"v":${offset}}\n`
-        next(null, chunk)
-      } else {
-        waiting.push(() => pull(size, next))
-      }
-    }
+    return lines.on('error', (e) => filter.emit('error', e)).pipe(filter)
   }
 }
 
@@ -116,6 +90,44 @@ function simplify (op) {
     patch = patch.concat(simplify(xtend(op, {value: op.value[k], path: op.path + '/' + k})))
   }
   return patch
+}
+
+/**
+ * Compact a large patch by removing operations that are overwritten by later
+ * ones.
+ *
+ * WARNING: only safe for creating a state snapshot from a simplified log!
+ *
+ * Algorithm description:
+ */
+function compact (patch) {
+  let i = patch.length;
+  let writtenPaths = []
+  let newPatch = []
+
+  nextOp: while (i > 0) {
+    let op = patch[--i]
+    // since log was already persisted, we can assume all tests passed.
+    if (op.op === 'test') {
+      continue;
+    }
+
+    for (let j = 0; j < writtenPaths.length; j++) {
+      let writtenPath = writtenPaths[j]
+      // we've already written to this path or an ancestor
+      let writtenPathLength
+      if (op.path.length >= writtenPath.length &&
+          op.path.substr(0, writtenPath.length) === writtenPath)
+      {
+        continue nextOp;
+      }
+    }
+
+    writtenPaths.push(op.path)
+    newPatch.push(op)
+  }
+
+  return newPatch.reverse()
 }
 
 class NotFound extends Error {
